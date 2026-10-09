@@ -1,0 +1,202 @@
+import { Button, VerticalBox, HorizontalBox, TextEdit, ComboBox, ListView, LineEdit, GroupBox, SpinBox } from "std-widgets.slint";
+
+export struct HistoryItem {
+    id: int,
+    text: string,
+    timestamp: string,
+}
+
+export component AppWindow inherits Window {
+    title: "Voice String Chatter";
+    preferred-width: 650px;
+    preferred-height: 900px;
+    icon: @image-url("logo.svg");
+
+    in-out property <string> input-text: "";
+    in-out property <[string]> output-devices: ["Default"];
+    in-out property <string> selected-output-device: "Default";
+    in-out property <[string]> tts-models: ["VOICEVOX (Local)", "TTS(OS Native)"];
+    in-out property <string> selected-tts-model: "VOICEVOX (Local)";
+
+    // Engine specific settings properties
+    in-out property <int> voicevox-speaker: 14;
+    in-out property <string> voicevox-speed: "1.0";
+    in-out property <string> voicevox-pitch: "0.0";
+    in-out property <string> voicevox-volume: "1.0";
+
+    in-out property <[HistoryItem]> history-items: [];
+    in-out property <bool> is-playing: false;
+
+    callback speak-requested(string);
+    callback stop-requested();
+    callback replay-requested(int);
+    callback delete-requested(int);
+    callback device-changed(string);
+    callback model-changed(string);
+    callback voicevox-settings-changed(int, string, string, string);
+
+    VerticalBox {
+        padding: 12px;
+        spacing: 12px;
+
+        // Header Settings Row
+        HorizontalBox {
+            spacing: 12px;
+
+            Text {
+                text: "TTS Model:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: root.tts-models;
+                current-value: root.selected-tts-model;
+                selected(val) => {
+                    root.selected-tts-model = val;
+                    root.model-changed(val);
+                }
+            }
+
+            Text {
+                text: "Audio Output:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: root.output-devices;
+                current-value: root.selected-output-device;
+                selected(val) => {
+                    root.selected-output-device = val;
+                    root.device-changed(val);
+                }
+            }
+        }
+
+        // Dynamic Engine Settings GroupBox
+        if root.selected-tts-model == "VOICEVOX (Local)": GroupBox {
+            title: "VOICEVOX Parameters";
+            VerticalBox {
+                spacing: 8px;
+
+                HorizontalBox {
+                    spacing: 12px;
+                    Text { text: "Speaker ID:"; width: 110px; vertical-alignment: center; }
+                    SpinBox {
+                        value: root.voicevox-speaker;
+                        minimum: 0;
+                        maximum: 200;
+                        edited() => {
+                            root.voicevox-settings-changed(root.voicevox-speaker, root.voicevox-speed, root.voicevox-pitch, root.voicevox-volume);
+                        }
+                    }
+                }
+
+                HorizontalBox {
+                    spacing: 12px;
+                    Text { text: "Speed Scale:"; width: 110px; vertical-alignment: center; }
+                    LineEdit {
+                        text <=> root.voicevox-speed;
+                        accepted(val) => {
+                            root.voicevox-settings-changed(root.voicevox-speaker, root.voicevox-speed, root.voicevox-pitch, root.voicevox-volume);
+                        }
+                    }
+                }
+
+                HorizontalBox {
+                    spacing: 12px;
+                    Text { text: "Pitch Scale:"; width: 110px; vertical-alignment: center; }
+                    LineEdit {
+                        text <=> root.voicevox-pitch;
+                        accepted(val) => {
+                            root.voicevox-settings-changed(root.voicevox-speaker, root.voicevox-speed, root.voicevox-pitch, root.voicevox-volume);
+                        }
+                    }
+                }
+
+                HorizontalBox {
+                    spacing: 12px;
+                    Text { text: "Volume Scale:"; width: 110px; vertical-alignment: center; }
+                    LineEdit {
+                        text <=> root.voicevox-volume;
+                        accepted(val) => {
+                            root.voicevox-settings-changed(root.voicevox-speaker, root.voicevox-speed, root.voicevox-pitch, root.voicevox-volume);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Main Text Input Area
+        GroupBox {
+            title: "Text Input (Press Ctrl+Enter to Speak)";
+
+            VerticalBox {
+                spacing: 8px;
+
+                input-box := TextEdit {
+                    text <=> root.input-text;
+                    height: 100px;
+
+                    key-pressed(event) => {
+                        if (event.text == "\n" && event.modifiers.control) {
+                            if (root.input-text != "") {
+                                root.speak-requested(root.input-text);
+                                root.input-text = "";
+                            }
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+
+                HorizontalBox {
+                    spacing: 8px;
+                    alignment: end;
+
+                    Button {
+                        text: "Stop Playing";
+                        enabled: root.is-playing;
+                        clicked => { root.stop-requested(); }
+                    }
+
+                    Button {
+                        text: "Speak (Ctrl+Enter)";
+                        primary: true;
+                        enabled: root.input-text != "";
+                        clicked => {
+                            root.speak-requested(root.input-text);
+                            root.input-text = "";
+                        }
+                    }
+                }
+            }
+        }
+
+        // History / Past Strings Area
+        GroupBox {
+            title: "Speech History";
+
+            ListView {
+                for item in root.history-items: HorizontalBox {
+                    spacing: 8px;
+                    alignment: space-between;
+
+                    Text {
+                        text: item.text;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                    }
+
+                    Button {
+                        text: "Play";
+                        clicked => { root.replay-requested(item.id); }
+                    }
+
+                    Button {
+                        text: "Delete";
+                        clicked => { root.delete-requested(item.id); }
+                    }
+                }
+            }
+        }
+    }
+}

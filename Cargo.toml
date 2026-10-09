@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+slint = "1.18.1"
+rodio = "0.22.2"
+ureq = { version = "3.4.2", features = ["json"] }
+tts = "0.26.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+directories = "6.0.0"
+
+[build-dependencies]
+slint-build = "1.18.1"
